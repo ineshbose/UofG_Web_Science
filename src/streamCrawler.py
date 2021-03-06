@@ -1,13 +1,13 @@
 import re
 import json
 import emoji
-import tweepy
+from tweepy import StreamListener
 from datetime import datetime
 
-from . import collection
+from . import db, collection
 
 
-class StreamListener(tweepy.StreamListener):
+class StreamListener(StreamListener):
     """
     A class provided by tweepy to access the Twitter Streaming API.
     """

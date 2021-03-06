@@ -17,7 +17,7 @@ sinceID = None
 results = True
 
 while results:
-    if counter < 180:
+    if counter < 1:
         results = api.search(
             geocode=filters.geocode,
             count=100,
@@ -25,7 +25,9 @@ while results:
             tweet_mode="extended",
             max_id=last_id,
         )  # , since_id = sinceID)
-        print(results)
+        #print(results)
         counter += 1
+    '''
     else:
         time.sleep(15 * 60)
+    '''
