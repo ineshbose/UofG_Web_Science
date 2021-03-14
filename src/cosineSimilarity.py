@@ -1,2 +1,0 @@
-class CosineSimilarity:
-    pass

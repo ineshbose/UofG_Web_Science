@@ -12,11 +12,28 @@ class StreamListener(StreamListener):
     A class provided by tweepy to access the Twitter Streaming API.
     """
 
+    def __init__(self, **kwargs):
+        self.total_tweets = 0
+        self.collected_tweets = 0
+        super().__init__(**kwargs)
+
     def on_connect(self):
-        print("You are now connected to the streaming API.")
+        collection.drop()
+        print("You are now connected to the Streaming API.")
 
     def on_error(self, status_code):
         print(f"An Error has occured: {repr(status_code)}")
+
+    def on_exception(self, exception):
+        self.on_error(exception)
+
+    def on_disconnect(self, notice):
+        print(
+            "Disconnected to the Streaming API.",
+            f"Total tweets: {self.total_tweets}",
+            f"Collected tweets: {self.collected_tweets}",
+            sep="\n"
+        )
 
     def strip_emoji(self, text):
         return re.sub(emoji.get_emoji_regexp(), r"", text)
@@ -27,46 +44,44 @@ class StreamListener(StreamListener):
         return text
 
     def processTweets(self, tweet):
-        place_countrycode = None
-        place_name = None
-        place_country = None
-        place_coordinates = None
-        exactcoord = None
-        place = None
 
-        created = datetime.strptime(tweet["created_at"], "%a %b %d %H:%M:%S +0000 %Y")
-        tweet_id = tweet["id_str"]
-        username = tweet["user"]["screen_name"]
-        text = tweet["text"]
+        created = datetime.strptime(
+            tweet.get("created_at", "Thu Jan 01 00:00:00 +0000 1970"), "%a %b %d %H:%M:%S +0000 %Y"
+        )
 
-        if tweet.get("truncated"):
-            text = tweet["extended_tweet"]["full_text"]
-        elif text.startswith("RT"):
-            text = (
+        tweet_id = tweet.get("id_str")
+        username = tweet["user"].get("screen_name") if "user" in tweet else None
+
+        text = self.cleanList(
+            tweet["extended_tweet"]["full_text"] if tweet.get("truncated")
+            else ((
                 tweet["retweeted_status"]["extended_tweet"]["full_text"]
-                if tweet["retweeted_status"]["truncated"]
+                if tweet["retweeted_status"].get("truncated")
                 else tweet["retweeted_status"].get(
                     "full_text", tweet["retweeted_status"]["text"]
-                )
+                )) if tweet.get("text", "").startswith("RT") and "retweeted_status" in tweet else tweet.get("text", "")
             )
+        )
 
-        text = self.cleanList(text)
+        quote_count = tweet.get("quote_count")
+        reply_count = tweet.get("reply_count")
+        retweet_count = tweet.get("retweet_count")
+        favorite_count = tweet.get("favorite_count")
 
-        mList = [x["screen_name"] for x in tweet["entities"]["user_mentions"]]
-        hList = [x["text"] for x in tweet["entities"]["hashtags"]]
-        source = tweet["source"]
+        entities = tweet.get("entities") if not tweet.get("truncated") else tweet["extended_tweet"].get("entities")
+        mList = [x["screen_name"] for x in entities.get("user_mentions", [])] if entities else []
+        hList = [x["text"] for x in entities.get("hashtags", [])] if entities else []
+        mediaList = [{"type":x.get("type"), "link":x.get("media_url")} for x in entities.get("media", [])] if entities else []
+        source = tweet.get("source")
 
-        exactcoord = tweet["coordinates"]
-        coordinates = exactcoord["coordinates"] if exactcoord else None
-        geoenabled = tweet["user"]["geo_enabled"]
-        location = tweet["user"]["location"]
+        exactcoord = tweet.get("coordinates")
+        coordinates = exactcoord.get("coordinates") if exactcoord else None
+        geoenabled = tweet["user"].get("geo_enabled", False) if "user" in tweet else False
+        location = tweet["user"].get("location") if "user" in tweet else None
 
-        if (geoenabled) and not text.startswith("RT"):
-            if tweet.get("place"):
-                place_name = tweet["place"]["full_name"]
-                place_country = tweet["place"]["country"]
-                place_countrycode = tweet["place"]["country_code"]
-                place_coordinates = tweet["place"]["bounding_box"]["coordinates"]
+        place_name, place_country, place_countrycode, place_coordinates = (
+            tweet["place"].get("full_name"), tweet["place"].get("country"), tweet["place"].get("country_code"), tweet["place"].get("bounding_box", {"coordinates": []})["coordinates"]
+        ) if geoenabled and not text.startswith("RT") and tweet.get("place") else (None, None, None, None)
 
         return {
             "_id": tweet_id,
@@ -82,11 +97,22 @@ class StreamListener(StreamListener):
             "place_coordinates": place_coordinates,
             "hashtags": hList,
             "mentions": mList,
+            "media": mediaList,
             "source": source,
+            "quotes": quote_count,
+            "replies": reply_count,
+            "retweets": retweet_count,
+            "favorites": favorite_count,
         }
 
     def on_data(self, data):
+
+        super().on_data(data)
+        self.total_tweets += 1
+
         t = json.loads(data)
         tweet = self.processTweets(t)
-        if tweet["geoenabled"]:
+
+        if tweet["place_country"] == "United Kingdom":
+            self.collected_tweets += 1
             collection.insert_one(tweet)
