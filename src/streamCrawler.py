@@ -5,6 +5,7 @@ from tweepy import StreamListener
 from datetime import datetime
 
 from . import db, collection
+from .dataAnalyser import dataAnalyser
 
 
 class StreamListener(StreamListener):
@@ -13,8 +14,10 @@ class StreamListener(StreamListener):
     """
 
     def __init__(self, **kwargs):
-        self.total_tweets = 0
-        self.collected_tweets = 0
+        self.total_tweets_count = 0
+        self.collected_tweets_count = 0
+        self.collected_tweets = []
+        self.analyser = dataAnalyser()
         super().__init__(**kwargs)
 
     def on_connect(self):
@@ -30,8 +33,8 @@ class StreamListener(StreamListener):
     def on_disconnect(self, notice):
         print(
             "Disconnected to the Streaming API.",
-            f"Total tweets: {self.total_tweets}",
-            f"Collected tweets: {self.collected_tweets}",
+            f"Total tweets: {self.total_tweets_count}",
+            f"Collected tweets: {self.collected_tweets_count}",
             sep="\n"
         )
 
@@ -45,12 +48,29 @@ class StreamListener(StreamListener):
 
     def processTweets(self, tweet):
 
-        created = datetime.strptime(
-            tweet.get("created_at", "Thu Jan 01 00:00:00 +0000 1970"), "%a %b %d %H:%M:%S +0000 %Y"
-        )
-
+        curr_time = datetime.now()
+        dt_format = "%a %b %d %H:%M:%S +0000 %Y"
+        created = datetime.strptime(tweet.get("created_at", curr_time.strftime(dt_format)), dt_format)
         tweet_id = tweet.get("id_str")
-        username = tweet["user"].get("screen_name") if "user" in tweet else None
+
+        username, description, verified, followers, account_age = (
+            tweet["user"].get("screen_name"),
+            tweet["user"].get("description"),
+            tweet["user"].get("verified"),
+            tweet["user"].get("followers_count", 0),
+            abs(datetime.strptime(tweet["user"].get("created_at", curr_time.strftime(dt_format)), dt_format) - curr_time).days,
+        ) if "user" in tweet else (None, None, None, None, None)
+
+        fw = {range(1): 0, range(1,50): 0.5, range(50,5000): 1.0,range(5000,10000): 1.5,range(10000,100000): 2.0,range(100000,200000): 2.5}
+        aw = {range(1): 0, range(1,182): 0.5, range(182, 365): 1.0, range(365, 547): 1.5}
+        desc_weight, verified_weight, follow_weight, account_age, profile_weight = (
+            (1.0 if description else 0),
+            (1.0 if verified else 0),
+            ((sum(fw[k] for k in fw if followers in k)/3) if followers in range(200000) else 1.0),
+            ((sum(aw[k] for k in aw if account_age in k)/3) if account_age in range(547) else 1.0),
+            (0.5 if not tweet["user"].get("default_profile") else 0) + (0.5 if not tweet["user"].get("default_profile_image") else 0),
+        )
+        quality_score = (profile_weight + verified_weight + follow_weight + account_age + desc_weight)/5
 
         text = self.cleanList(
             tweet["extended_tweet"]["full_text"] if tweet.get("truncated")
@@ -103,16 +123,21 @@ class StreamListener(StreamListener):
             "replies": reply_count,
             "retweets": retweet_count,
             "favorites": favorite_count,
+            "quality_score": quality_score
         }
 
     def on_data(self, data):
 
         super().on_data(data)
-        self.total_tweets += 1
+        self.total_tweets_count += 1
 
         t = json.loads(data)
         tweet = self.processTweets(t)
 
-        if tweet["place_country"] == "United Kingdom":
-            self.collected_tweets += 1
+        if tweet["quality_score"] > 0.85 and tweet["place_country"] == "United Kingdom":
+            self.collected_tweets_count += 1
+            self.collected_tweets.append(tweet["text"])
             collection.insert_one(tweet)
+
+        if self.collected_tweets_count > 100:
+            self.analyser.analyse(self.collected_tweets)

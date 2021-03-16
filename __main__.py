@@ -7,14 +7,14 @@ from src.streamCrawler import StreamListener
 listener = StreamListener(api=tweepy.API(wait_on_rate_limit=True))
 streamer = tweepy.Stream(auth=auth, listener=listener)
 streamer.filter(
-    locations=filters.locations, track=filters.words, languages=["en"], is_async=True
+    locations=filters.locations, track=filters.words, languages=["en"], is_async=False
 )
 
 last_id = None
 counter = 0
 sinceID = None
 
-results = True
+results = False
 
 while results:
     if counter < 1:
