@@ -14,9 +14,10 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 from wordcloud import WordCloud
 from .filters import words
+from .dataCollector import DataCollector
 
 
-class dataAnalyser:
+class DataAnalyser:
     """
     Analyzes provided data with the help of `sklearn`.
 
@@ -28,6 +29,7 @@ class dataAnalyser:
         self.stop_words = set(stopwords.words('english'))
         self.lemmatizer = WordNetLemmatizer()
         self.w_tokenizer = WhitespaceTokenizer()
+        self.database = DataCollector()
 
         self.follow_ranges = {
             range(1): 0,
@@ -140,51 +142,19 @@ class dataAnalyser:
                 else 1.0
             ),
         )) / 4)
-    '''
-    def get_weight(self, type, **kwargs):
-        description, verified, followers, account_age, defaults = (
-            kwargs["description"], kwargs["verified"], kwargs["followers"],
-            kwargs["account_age"], kwargs["defaults"],
-        )
-        print(account_age)
-        desc_weight, verified_weight, follow_weight, account_age, profile_weight = (
-            (1.0 if description else 0),
-            (1.0 if verified else 0),
-            (
-                (sum(self.follow_ranges[k] for k in self.follow_ranges if followers in k) / 3)
-                if followers in range(200000)
-                else 1.0
-            ),
-            (
-                (sum(self.age_ranges[k] for k in self.age_ranges if account_age in k) / 2)
-                if account_age in range(547)
-                else 1.0
-            ),
-            (
-                (0.5 if not defaults[0] else 0) + (0.5 if not defaults[1] else 0)
-                if defaults
-                else 0
-            ),
-        )
-        print(desc_weight, verified_weight, follow_weight, account_age, profile_weight)
-        user_quality_score = (
-            profile_weight + verified_weight + follow_weight + account_age + desc_weight
-        ) / 5
-        return user_quality_score
-    '''
 
     def cluster(self, X, data):
         true_k = 6
         model = KMeans(n_clusters=true_k, init="k-means++", max_iter=200, n_init=10)
         model.fit(X)
         labels = model.labels_
-        wiki_cl = pd.DataFrame(list(zip(words, labels)), columns=["title", "cluster"])
-        print(wiki_cl.sort_values(by=["cluster"]))
-        result = {"cluster": labels, "wiki": data}
+        tweet_cl = pd.DataFrame(list(zip(words, labels)), columns=["title", "cluster"])
+        print(tweet_cl.sort_values(by=["cluster"]))
+        result = {"cluster": labels, "tweet": data}
         result = pd.DataFrame(result)
         for k in range(0, true_k):
             s = result[result.cluster == k]
-            text = s["wiki"].str.cat(sep=" ")
+            text = s["tweet"].str.cat(sep=" ")
             text = text.lower()
             text = " ".join([word for word in text.split()])
             wordcloud = WordCloud(
@@ -192,7 +162,7 @@ class dataAnalyser:
             ).generate(text)
             print("Cluster: {}".format(k))
             print("Titles")
-            titles = wiki_cl[wiki_cl.cluster == k]["title"]
+            titles = tweet_cl[tweet_cl.cluster == k]["title"]
             print(titles.to_string(index=False))
             plt.figure()
             plt.imshow(wordcloud, interpolation="bilinear")
@@ -202,6 +172,7 @@ class dataAnalyser:
     def tokenize(self, text):
         return nltk.word_tokenize(text)
 
-    def analyse(self, data):
+    def analyse(self):
+        data = [d for d in self.database.get_all() if self.get_weight("user", **d) > 0.6 and self.get_weight("tweet", **d) >= 0]
         self.elbow_method(self.vectorize(data))
         self.cluster(self.vectorize(data), data)

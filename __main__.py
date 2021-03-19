@@ -1,10 +1,8 @@
 import time
 import tweepy
 
-from src import api, auth, filters
-from src.streamCrawler import StreamListener
-listener = StreamListener(api=tweepy.API(wait_on_rate_limit=True))
-streamer = tweepy.Stream(auth=auth, listener=listener)
+from src import api, filters, streamer
+
 streamer.filter(
     locations=filters.locations, track=filters.words, languages=["en"], is_async=False
 )

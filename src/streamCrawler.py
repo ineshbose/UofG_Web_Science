@@ -1,11 +1,13 @@
 import re
+import sys
 import json
 import emoji
 from tweepy import StreamListener
 from datetime import datetime
 
-from . import db, collection
-from .dataAnalyser import dataAnalyser
+from . import db, collection ###
+from .dataAnalyser import DataAnalyser
+from .dataCollector import DataCollector
 
 
 class StreamListener(StreamListener):
@@ -15,8 +17,10 @@ class StreamListener(StreamListener):
 
     def __init__(self, **kwargs):
         self.total_tweets_count = 0
-        self.collected_tweets = []
-        self.analyser = dataAnalyser()
+        self.collected_tweets_count = 0
+        self.media_count = {}
+        self.analyser = DataAnalyser()
+        self.collector = DataCollector()
         super().__init__(**kwargs)
 
     def on_connect(self):
@@ -55,6 +59,8 @@ class StreamListener(StreamListener):
             tweet.get("created_at", curr_time.strftime(dt_format)), dt_format
         )
         tweet_id = tweet.get("id_str")
+        retweeted = tweet.get("text", "").startswith("RT") and "retweeted_status" in tweet
+        quoted = tweet.get("is_quote_status") and "quoted_status" in tweet
 
         username, description, verified, followers, account_age, defaults = (
             (
@@ -79,19 +85,22 @@ class StreamListener(StreamListener):
         )
 
         text = self.cleanList(
-            tweet["extended_tweet"]["full_text"]
+            tweet["extended_tweet"].get("full_text", tweet.get("text", ""))
             if tweet.get("truncated")
             else (
                 (
-                    tweet["retweeted_status"]["extended_tweet"]["full_text"]
-                    if tweet["retweeted_status"].get("truncated")
-                    else tweet["retweeted_status"].get(
-                        "full_text", tweet["retweeted_status"]["text"]
+                    tweet["retweeted_status"].get(
+                        "full_text", tweet["retweeted_status"].get("text", "")
                     )
                 )
-                if tweet.get("text", "").startswith("RT")
-                and "retweeted_status" in tweet
-                else tweet.get("text", "")
+                if retweeted
+                else (
+                    tweet["quoted_status"].get(
+                        "full_text", tweet["quoted_status"].get("text", "")
+                    )
+                    if quoted
+                    else tweet.get("text", "")
+                )
             )
         )
 
@@ -164,6 +173,8 @@ class StreamListener(StreamListener):
             "replies": reply_count,
             "retweets": retweet_count,
             "favorites": favorite_count,
+            "is_retweeted": retweeted,
+            "is_quoted": quoted,
         }
 
     def on_data(self, data):
@@ -173,12 +184,12 @@ class StreamListener(StreamListener):
 
         t = json.loads(data)
         tweet = self.processTweets(t)
-        #print(tweet["text"])
-        #print(self.analyser.tokenize(tweet["text"]))
 
-        if (tweet["country_code"] == "GB" or tweet["place_country"] == "United Kingdom") and self.analyser.get_weight("user", **tweet) > 0.8:
-            self.collected_tweets.append(tweet["text"])
-            collection.insert_one(tweet)
+        if (tweet["country_code"] == "GB" or tweet["place_country"] == "United Kingdom"):
+            self.collected_tweets_count += 1
+            for media in tweet["media"]:
+                self.media_count[media["type"]] = self.media_count.get(media["type"], 0) + 1
+            self.collector.add(tweet)
 
-        if len(self.collected_tweets) > 100:
-            self.analyser.analyse(self.collected_tweets)
+        if self.collected_tweets_count >= 180:
+            self.analyser.analyse()

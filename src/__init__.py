@@ -23,5 +23,10 @@ if not api.verify_credentials():
 
 # MongoDB Setup
 client = MongoClient(MONGO_TOKEN, 27017)
-db = client["TwitterDump"]
-collection = db["colTest"]
+
+
+from .streamCrawler import StreamListener
+
+# Streamer Setup
+listener = StreamListener(api=tweepy.API(wait_on_rate_limit=True))
+streamer = tweepy.Stream(auth=auth, listener=listener)
