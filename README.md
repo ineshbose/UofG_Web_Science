@@ -2,6 +2,7 @@
 
 This repository has the coursework for Web Science (H).
 
+
 ## Introduction
 
 The objective of this coursework is to develop a Twitter crawler for data collection in English and to conduct social media analytics. It is recommended to use Python language and also MongoDB for data storage.
@@ -11,6 +12,7 @@ The code and report needs to be submitted on or before the specified deadline. I
 The coursework will be marked out of 100 and will have 20% weight of the final marks. As the usual practice across the school, numerical marks will be appropriately converted into bands.
 
 Tweets which are posted in United Kingdom are of main interest and need to be collected for 1 hour of any day. In addition, sample multimedia contents for tweets with media objects should be downloaded.
+
 
 ## Specific Tasks to Do
 
@@ -30,6 +32,7 @@ Develop a crawler to access as much Twitter data as possible and group the tweet
 5. Download multimedia contents including videos and pictures for tweets with media objects. Provide a basic analysis of collected data. [10 marks]
 
 6. Discuss the data access strategies implemented. Clearly specify the Twitter API specific restrictions encountered and they were addressed for collecting as much Twitter data as possible.
+
 
 ## Report Structure
 
@@ -57,3 +60,25 @@ The report should be written with a 11pt font and with the maximum length of 10 
 
 3. Section 3: Scheduler/Ranker
     1. Describe the design of the scheduler to address Twitter access restrictions
+
+
+## Usage
+
+Clone the repository, create a virtual environment with packages installed, and set your API keys in [`src/__init__.py`](/src/__init__.py) or using environment variables. All key names are listed in [`.env.example`](/.env.example). After the setup, simply run the directory with Python as `__main__.py` is present.
+```sh
+# Cloning
+$ git clone https://github.com/ineshbose/UofG_Web_Science_H
+$ cd UofG_Web_Science_H
+
+# Creating Virtual Environment
+$ python -m venv env
+$ source env/bin/activate # Unix or macOS
+# for Windows, use `env\scripts\activate`
+$ pip install -r requirements.txt
+
+# Environment Variable
+$ set API_KEY="" # example
+
+# Running
+$ python .
+```

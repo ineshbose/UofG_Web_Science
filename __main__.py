@@ -1,5 +1,4 @@
 import time
-import tweepy
 
 from src import api, filters, streamer
 

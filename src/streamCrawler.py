@@ -5,7 +5,6 @@ import emoji
 from tweepy import StreamListener
 from datetime import datetime
 
-from . import db, collection ###
 from .dataAnalyser import DataAnalyser
 from .dataCollector import DataCollector
 
@@ -18,6 +17,7 @@ class StreamListener(StreamListener):
     def __init__(self, **kwargs):
         self.total_tweets_count = 0
         self.collected_tweets_count = 0
+        self.collected_tweets = []
         self.media_count = {}
         self.analyser = DataAnalyser()
         self.collector = DataCollector()
@@ -44,12 +44,16 @@ class StreamListener(StreamListener):
         return re.sub(emoji.get_emoji_regexp(), r"", text)
 
     def cleanList(self, text):
-        text = self.strip_emoji(" ".join(filter(
-            lambda x:x[:4]!='http', # and x[0] not in ['@', '#'],
-            text.split(),
-        )).lower())
+        text = self.strip_emoji(
+            " ".join(
+                filter(
+                    lambda x: x[:4] != "http",  # and x[0] not in ['@', '#'],
+                    text.split(),
+                )
+            ).lower()
+        )
         text.encode("ascii", errors="ignore").decode()
-        return re.sub(r'[^A-Za-z0-9 ]+', '', text)
+        return re.sub(r"[^A-Za-z0-9 ]+", "", text)
 
     def processTweets(self, tweet):
 
@@ -59,7 +63,9 @@ class StreamListener(StreamListener):
             tweet.get("created_at", curr_time.strftime(dt_format)), dt_format
         )
         tweet_id = tweet.get("id_str")
-        retweeted = tweet.get("text", "").startswith("RT") and "retweeted_status" in tweet
+        retweeted = (
+            tweet.get("text", "").startswith("RT") and "retweeted_status" in tweet
+        )
         quoted = tweet.get("is_quote_status") and "quoted_status" in tweet
 
         username, description, verified, followers, account_age, defaults = (
@@ -185,11 +191,15 @@ class StreamListener(StreamListener):
         t = json.loads(data)
         tweet = self.processTweets(t)
 
-        if (tweet["country_code"] == "GB" or tweet["place_country"] == "United Kingdom"):
+        if tweet["country_code"] == "GB" or tweet["place_country"] == "United Kingdom":
             self.collected_tweets_count += 1
             for media in tweet["media"]:
-                self.media_count[media["type"]] = self.media_count.get(media["type"], 0) + 1
-            self.collector.add(tweet)
+                self.media_count[media["type"]] = (
+                    self.media_count.get(media["type"], 0) + 1
+                )
+            self.collected_tweets.append(tweet)
 
-        if self.collected_tweets_count >= 180:
+        if self.collected_tweets and self.collected_tweets_count % 50000 == 0:
+            self.collector.add(self.collected_tweets)
+            self.collected_tweets = []
             self.analyser.analyse()

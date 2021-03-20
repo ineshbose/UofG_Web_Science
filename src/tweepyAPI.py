@@ -4,7 +4,6 @@ from . import api
 
 
 class TweepyAPI(tweepy.API):
-
     def __init__(self):
         self.api = api
 
