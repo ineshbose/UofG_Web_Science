@@ -69,7 +69,7 @@ class DataAnalyser:
         result = pd.DataFrame(result)
         for k in range(0, true_k):
             s = result[result.cluster == k]
-            wordcloud = WordCloud().generate(
+            wordcloud = WordCloud(background_color="white").generate(
                 " ".join([word for word in s["tweet"].str.cat(sep=" ").lower().split()])
             )
             print(f"Cluster: {k}")
@@ -82,10 +82,9 @@ class DataAnalyser:
             plt.show()
 
     def analyse(self):
-        data = [
+        self.cluster(*self.elbow_method([
             d["text"]
             for d in self.database.get_all()[:]
             if ranges.get_weight("user", **d) > 0.6
             and ranges.get_weight("tweet", **d) >= 0
-        ]
-        self.cluster(*self.elbow_method(data, self.vectorize(data)))
+        ]))
