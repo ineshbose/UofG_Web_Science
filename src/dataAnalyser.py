@@ -1,5 +1,3 @@
-import decimal
-
 import nltk
 from nltk.tokenize import RegexpTokenizer, WhitespaceTokenizer
 from nltk.stem import WordNetLemmatizer
@@ -82,9 +80,13 @@ class DataAnalyser:
             plt.show()
 
     def analyse(self):
-        self.cluster(*self.elbow_method([
-            d["text"]
-            for d in self.database.get_all()[:]
-            if ranges.get_weight("user", **d) > 0.6
-            and ranges.get_weight("tweet", **d) >= 0
-        ]))
+        self.cluster(
+            *self.elbow_method(
+                [
+                    d["text"]
+                    for d in self.database.get_all()[:]
+                    if ranges.get_weight("user", **d) > 0.6
+                    and ranges.get_weight("tweet", **d) >= 0
+                ]
+            )
+        )
