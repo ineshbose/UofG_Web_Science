@@ -1,0 +1,196 @@
+% Web Science (H) CW Report written in LaTeX by Inesh Bose
+
+\documentclass{article}
+
+%==============================================================================
+%% Packages and Command Setting
+\usepackage[utf8]{inputenc}
+\setcounter{secnumdepth}{0}
+\usepackage[shortlabels]{enumitem}
+\usepackage{layout}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{minted}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\entry}[3]{\begin{tabular}[c]{@{}l@{}}\code{#1}\\ \code{#2}\\ \code{#3}\end{tabular}}
+
+%==============================================================================
+%% Title Page
+
+\title{Web Science (H)\\ \normalsize{\textbf{Coursework:} Social Media Analytics}}
+\author{\bf Inesh Bose}
+\date{}
+
+\begin{document}
+
+\definecolor{bg}{rgb}{0.95,0.95,0.95}
+
+\maketitle
+\vspace{1cm}
+
+\tableofcontents
+\addtocontents{toc}{\protect\thispagestyle{empty}}
+\pagenumbering{gobble}
+
+%==============================================================================
+%% Introduction
+
+\vspace{2cm}
+
+\section{Introduction}
+
+The software developed is structured mainly as a package with classes inside the \code{src} directory and can be run simply by using \code{python .} in the directory with the \code{\_\_main\_\_.py} file. Additionally, there are two more scripts \code{mediaDownloader.py} that will download media from all collected tweets in the \code{media} directory, and \code{tweetCounter.py} that will just print the number of collected tweets, retweets, quotes, etc.
+
+\noindent The data collected during the development of this software was between 17:00 to 18:00 GMT on 20 March 2021. All tweets were from the United Kingdom (GB) giving a total of 12691 tweets.
+
+
+%==============================================================================
+%% Data Crawl : Streaming & Crawl Data
+
+\newpage
+
+\section{Data Crawl}
+
+\subsection{Streaming}
+
+The \href{https://developer.twitter.com/en/docs/tutorials/consuming-streaming-data}{Twitter Streaming API}\cite{twitterstream} was used to collect 1\% data that was posted in real-time. This was done using \href{https://github.com/tweepy/tweepy}{\code{tweepy}}\cite{tweepy} and its \href{https://github.com/tweepy/tweepy/blob/master/tweepy/streaming.py}{\code{Stream}} object that creates \code{StreamListener} which is extended in the provided code, along with the \code{on\_data} method.
+
+\begin{minted}[tabsize=5,bgcolor=bg]{python}
+
+def on_data(self, data):
+
+    super().on_data(data)
+    self.total_tweets_count += 1
+
+    t = json.loads(data)
+    tweet = self.processTweet(t)
+
+    if (
+        tweet["country_code"] == "GB"
+        or tweet["place_country"] == "United Kingdom"
+    ):
+        self.collected_tweets_count += 1
+        self.collected_tweets.append(tweet)
+
+    if (
+        self.collected_tweets
+        and self.collected_tweets_count % 5000 == 0:
+    )
+        self.collector.add(self.collected_tweets)
+        self.collected_tweets = []
+
+\end{minted}
+
+\subsection{Crawl Data}
+
+Out of 16678 tweets that were picked by the crawler, 12691 tweets could be surely said to be from the United Kingdom. Out of those, 341 were retweets and 1263 were quote tweets. 162 tweets were made by verified accounts, and 1941 tweets had images.
+
+\begin{table}[htb]
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+\textbf{Total}  & \textbf{Streaming API} & \textbf{Retweets}  & \textbf{Quotes}   \\ \hline
+16678           & 12691                  & 341                & 1263              \\
+                &                        &                    &                   \\ \hline
+\textbf{Images} & \textbf{Verified}      & \textbf{Geotagged} & \textbf{Location} \\ \hline
+1941            & 162                    & 12691              & 11085             \\
+                &                        &                    &                   \\ \hline
+\end{tabular}
+\end{table}
+
+
+%==============================================================================
+%% Data Crawl : Clustering, DS&P, Media
+
+\newpage
+
+\subsection{Clustering}
+
+The data was then clustered using the \textit{Elbow Method}. All analysis is done in \code{dataAnalyser.py} script that mainly uses \href{https://scikit-learn.org/stable/}{\code{sklearn}}\cite{sklearn} to get KMeans value and with the help of \code{kneed} package, the elbow point is determined dynamically. In this case, the value was 2. This is because out of 12961 tweets, 5623 tweets were selected based on their quality score. The user quality score (that considers the account that made the tweet to be a reliable source by checking user bio/description, verified status, numbers of followers, account age and defaults like profile picture and theme) had a threshold of 0.6 and the tweet quality score (that considers tweet content using number times retweeted, quoted, favourite-d and replied) had no threshold (i.e. 0.0, since not many tweets had a good value here).
+
+\begin{table}[htb]
+\centering
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+\textbf{Total}  & \textbf{Groups}    & \textbf{Min Size}  & \textbf{Max Size}   & \textbf{Avg Size}   \\ \hline
+5623            & 2                  & 443                & 5180                & 2811                \\
+                &                    &                    &                     &                     \\ \hline
+\end{tabular}
+\end{table}
+
+\subsection{Data Structure & Processing}
+
+The code has already been structured as classes and objects for optimisation and understand-ability. However, the processing with methods has been made as efficient as possible using linear complexity algorithms, ternary operators and comprehensions. During clustering, elements from \code{numpy} and \code{pandas} is also used for their efficient data structures.
+
+\begin{table}[htb]
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+\textbf{Total}  & \textbf{Streaming API} & \textbf{REST API}  & \textbf{Redundant}   \\ \hline
+12691           & 8196                   & 4495               & 3987                 \\
+                &                        &                    &                      \\ \hline
+\textbf{Quotes} & \textbf{Retweets}      & \textbf{Geotagged} & \textbf{Media}       \\ \hline
+1263            & 341                    & 12691              & 1701                 \\
+                &                        &                    &                      \\ \hline
+\end{tabular}
+\end{table}
+
+\subsection{Media Objects}
+
+The only essential data from Media Objects saved is 1) media type and 2) type of media so that these can be used to download data later and use the amount of each media type for analysing. The script \code{mediaDownloader.py} downloads all media in a directory with all types in their respective folders.
+
+
+%==============================================================================
+%% Scheduler / Ranker
+
+\newpage
+
+\section{Scheduler / Ranker}
+
+As of \href{https://developer.twitter.com/en/docs/twitter-api/v1/rate-limits}{Twitter API Standard v1.1}\cite{twitterrates}, up to 900 requests every 15 minutes are allowed. To handle this with the REST API, a limit handler method \code{limit\_handled} was implemented with the help of \code{tweepy}'s \code{RateLimitError}. Along with that, while initialising the \code{tweepy.API} object, a keyword argument \code{wait\_on\_rate\_limit} with value \code{True} was passed so that this is handled automatically.
+
+\begin{minted}[tabsize=5,bgcolor=bg]{python}
+
+def limit_handled(self, cursor, **filters):
+    while True:
+        try:
+            c = cursor(
+                since_id=self.since_id,
+                max_id=self.max_id,
+                **filters
+            )
+            self.since_id, self.max_id = (
+                (c[-1].id, c[0].id)
+                if c
+                else (self.since_id, self.max_id)
+            )
+            yield from c
+
+        except tweepy.RateLimitError:
+            print("Search rate reached. Waiting..")
+            time.sleep(15 * 60)
+
+        except tweepy.TweepError as e:
+            print(f"Something went wrong: {e}")
+
+\end{minted}
+
+\begin{thebibliography}{9}
+
+\bibitem{tweepy}
+Tweepy. \href{https://github.com/tweepy/tweepy/}{https://github.com/tweepy/tweepy/}
+
+\bibitem{tweepydocs}
+Tweepy Documentation. \href{http://docs.tweepy.org/}{http://docs.tweepy.org/}
+
+\bibitem{twitterstream}
+Twitter Streaming API.\\ \href{https://developer.twitter.com/en/docs/tutorials/consuming-streaming-data}{https://developer.twitter.com/en/docs/tutorials/consuming-streaming-data}
+
+\bibitem{sklearn}
+scikit-learn. \href{https://scikit-learn.org/stable/}{https://scikit-learn.org/stable/}
+
+\bibitem{twitterrates}
+Twitter Rate Limits.\\ \href{https://developer.twitter.com/en/docs/twitter-api/v1/rate-limits}{https://developer.twitter.com/en/docs/twitter-api/v1/rate-limits}
+\end{thebibliography}
+
+\end{document}

@@ -1,6 +1,4 @@
-# WORDS = ['manhattan' , 'new york city', 'statue of liberty']
-# LOCATIONS = [ -75,40,-72,42] # new york city
-locations = [-10.392627, 49.681847, 1.055039, 61.122019]  # UK and Ireland
+locations = [-10.392627, 49.681847, 1.055039, 61.122019]
 words = [
     "Boris",
     "Prime Minister",
@@ -47,8 +45,8 @@ words = [
     "Keith Stramer",
 ]
 
-Place = "London"
-Lat = "51.450798"
-Long = "-0.137842"
+place = "London"
+latitude = "51.450798"
+longitude = "-0.137842"
 radius = "10km"
-geocode = f"{Lat},{Long},{radius}"
+geocode = f"{latitude},{longitude},{radius}"
